@@ -1,0 +1,19 @@
+{
+  "name": "metric-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MetricMonitor — Smart GA4 Alerting & Monitoring SaaS",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "deploy:api": "npm run deploy --workspace=apps/api",
+    "db:generate": "npm run db:generate --workspace=apps/api",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "install:all": "npm install"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

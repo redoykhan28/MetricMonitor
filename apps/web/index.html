@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MetricMonitor - Smart GA4 Alerts</title>
+    <script>
+      (function() {
+        try {
+          var savedMode = localStorage.getItem('metric-monitor-mode');
+          if (savedMode === 'light') {
+            document.documentElement.classList.remove('dark');
+          } else {
+            document.documentElement.classList.add('dark');
+          }
+          
+          var savedThemeName = localStorage.getItem('metric-monitor-theme');
+          if (savedThemeName) {
+            var themes = {
+              'Teal': ['#4FF8D2', '#88FFE4'], 'Emerald': ['#10B981', '#34D399'],
+              'Cyan': ['#06B6D4', '#22D3EE'], 'Blue': ['#3B82F6', '#60A5FA'],
+              'Indigo': ['#6366F1', '#818CF8'], 'Purple': ['#A855F7', '#C084FC'],
+              'Pink': ['#EC4899', '#F472B6'], 'Rose': ['#F43F5E', '#FB7185'],
+              'Orange': ['#F97316', '#FB923C'], 'Amber': ['#F59E0B', '#FBBF24']
+            };
+            if (themes[savedThemeName]) {
+              document.documentElement.style.setProperty('--color-primary', themes[savedThemeName][0]);
+              document.documentElement.style.setProperty('--color-primary-hover', themes[savedThemeName][1]);
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

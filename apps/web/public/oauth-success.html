@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Connected!</title>
+    <style>
+      body {
+        background: #0a0a0a;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .icon { font-size: 48px; animation: pop 0.4s ease; }
+      h2 { margin: 0; font-size: 20px; }
+      p { margin: 0; color: #888; font-size: 14px; }
+      @keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
+    </style>
+  </head>
+  <body>
+    <div class="icon">✅</div>
+    <h2>Google Analytics Connected!</h2>
+    <p>This window will close automatically...</p>
+    <script>
+      console.log('[oauth-success] Page loaded. window.opener:', window.opener);
+      
+      function notifyParent() {
+        if (window.opener && !window.opener.closed) {
+          console.log('[oauth-success] Sending GA4_CONNECTED message to parent');
+          window.opener.postMessage({ type: 'GA4_CONNECTED' }, 'http://localhost:5173');
+          setTimeout(function() { window.close(); }, 1500);
+        } else {
+          console.log('[oauth-success] No opener found, redirecting...');
+          setTimeout(function() {
+            window.location.href = 'http://localhost:5173';
+          }, 2000);
+        }
+      }
+      
+      // Run immediately
+      notifyParent();
+    </script>
+  </body>
+</html>

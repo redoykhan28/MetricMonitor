@@ -1,0 +1,1 @@
+ALTER TABLE `workspace_settings` ADD `discord_webhook_url` text;

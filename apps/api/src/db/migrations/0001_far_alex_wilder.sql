@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `google_credentials_workspace_id_unique` ON `google_credentials` (`workspace_id`);
