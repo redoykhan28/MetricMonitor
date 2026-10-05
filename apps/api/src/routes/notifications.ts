@@ -29,6 +29,24 @@ notificationsRoutes.get('/', async (c) => {
   return c.json({ notifications: data });
 });
 
+// PATCH /api/notifications/read-all
+notificationsRoutes.patch('/read-all', async (c) => {
+  const userId = c.get('userId');
+  const db = getDb(c.env);
+
+  const workspace = await db.query.workspaces.findFirst({
+    where: eq(workspaces.ownerId, userId)
+  });
+
+  if (!workspace) return c.json({ error: 'Workspace not found' }, 404);
+
+  await db.update(notifications)
+    .set({ isRead: true })
+    .where(eq(notifications.workspaceId, workspace.id));
+
+  return c.json({ success: true });
+});
+
 // PATCH /api/notifications/:id/read
 notificationsRoutes.patch('/:id/read', async (c) => {
   const userId = c.get('userId');

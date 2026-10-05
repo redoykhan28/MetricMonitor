@@ -50,6 +50,19 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const markAllAsRead = async () => {
+    try {
+      const token = await getToken();
+      await fetch(`http://localhost:8787/api/notifications/read-all`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (e) {
+      console.error('Failed to mark all read');
+    }
+  };
+
   const markAsRead = async (id: string) => {
     try {
       const token = await getToken();
@@ -64,6 +77,12 @@ export function NotificationBell() {
       console.error('Failed to mark read');
     }
   };
+
+  useEffect(() => {
+    if (isOpen && unreadCount > 0) {
+      markAllAsRead();
+    }
+  }, [isOpen, unreadCount]);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -125,15 +144,7 @@ export function NotificationBell() {
                         {new Date(n.createdAt).toLocaleString()}
                       </p>
                     </div>
-                    {!n.isRead && (
-                      <button 
-                        onClick={() => markAsRead(n.id)}
-                        className="flex-shrink-0 text-text-muted hover:text-primary transition-colors cursor-pointer"
-                        title="Mark as read"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                    )}
+                    {/* Single mark as read button removed since we mark all as read automatically */}
                   </div>
                 ))}
               </div>
