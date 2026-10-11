@@ -1,31 +1,58 @@
 name = "metric-monitor-api"
 main = "src/index.ts"
-compatibility_date = "2024-03-20"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
 
-# Scheduled Cron Triggers
+# ─── Scheduled Cron Triggers ──────────────────────────────────────────────────
+# 5 cron slots available on paid plan — we use 4, keep 1 reserved
 [triggers]
-crons = ["*/15 * * * *"] # Run every 15 minutes to evaluate trackers
+crons = [
+  "*/15 * * * *",  # Slot 1: Main monitoring — every 15 minutes
+  "0 0 * * *",     # Slot 2: Daily cleanup & baseline rebuild
+]
 
-# Cloudflare Queues for fan-out processing
+# ─── Cloudflare Queues ────────────────────────────────────────────────────────
+# Main monitoring queue — fan-out one message per property
 [[queues.producers]]
 queue = "ga4-monitor-queue"
 binding = "MONITOR_QUEUE"
 
 [[queues.consumers]]
 queue = "ga4-monitor-queue"
-max_batch_size = 10
-max_retries = 3
+max_batch_size = 10          # Process up to 10 properties per consumer invocation
+max_retries = 3              # Phase 6 DLQ: Retry failed jobs up to 3 times
+dead_letter_queue = "ga4-monitor-dlq"  # After 3 failures → goes to dead letter queue
+max_wait_ms = 5000
 
-# Cloudflare KV for caching GA4 responses and baselines
+# Dead Letter Queue — captures permanently failed jobs for inspection
+[[queues.producers]]
+queue = "ga4-monitor-dlq"
+binding = "MONITOR_DLQ"
+
+# ─── Cloudflare KV ────────────────────────────────────────────────────────────
+# Used for caching GA4 API responses and tracker cooldown state
 [[kv_namespaces]]
 binding = "METRIC_CACHE"
-id = "preview_id_only" # To be replaced with real ID upon creation
-preview_id = "local_cache_preview"
+id = "REPLACE_WITH_REAL_KV_ID"           # Set this after: wrangler kv namespace create METRIC_CACHE
+preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
 
-# Environment Variables (Secrets should be set via `wrangler secret put`)
+# ─── Environment Variables ────────────────────────────────────────────────────
+# NEVER put secrets here — use `wrangler secret put` for all sensitive values
 [vars]
-# TURSO_URL = ""
-# TURSO_AUTH_TOKEN = ""
-# CLERK_PUBLISHABLE_KEY = ""
-# CLERK_SECRET_KEY = ""
-# RESEND_API_KEY = ""
+DASHBOARD_URL = "https://app.metricmonitor.io"   # Update to your real domain after deployment
+
+# ─── Secrets (set via CLI before deploying) ───────────────────────────────────
+# Run each of these commands once before deploying:
+#
+#   wrangler secret put TURSO_URL
+#   wrangler secret put TURSO_AUTH_TOKEN
+#   wrangler secret put CLERK_SECRET_KEY
+#   wrangler secret put CLERK_PUBLISHABLE_KEY
+#   wrangler secret put GOOGLE_CLIENT_ID
+#   wrangler secret put GOOGLE_CLIENT_SECRET
+#   wrangler secret put RESEND_API_KEY
+#   wrangler secret put RESEND_FROM_EMAIL      (e.g. "MetricMonitor <alerts@yourdomain.com>")
+
+# ─── Build ────────────────────────────────────────────────────────────────────
+[build]
+command = "npm run build --if-present"

@@ -217,7 +217,7 @@ googleRoutes.post('/properties/add', async (c) => {
       'ga4_added',
       '✅ New GA4 Property Connected',
       `You have successfully connected the GA4 property "${body.name}" to MetricMonitor. You can now create trackers for it.`,
-      { propertyId: body.ga4PropertyId }
+      { propertyName: body.name, ga4PropertyId: body.ga4PropertyId }
     );
   } catch (err) {
     console.error('Failed to dispatch ga4_added event', err);

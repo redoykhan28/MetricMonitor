@@ -1,0 +1,275 @@
+/**
+ * Phase 4.2 — Branded HTML Email Templates
+ * All templates use inline CSS for maximum email client compatibility.
+ */
+
+const BASE_STYLES = `
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  margin: 0; padding: 0; background-color: #09090b;
+`;
+
+const CONTAINER = `
+  max-width: 560px; margin: 0 auto; padding: 24px 16px;
+`;
+
+const CARD = `
+  background: #18181b; border-radius: 16px; border: 1px solid #27272a;
+  padding: 32px; margin-bottom: 16px;
+`;
+
+const FOOTER = `
+  text-align: center; color: #52525b; font-size: 12px;
+  padding: 16px 0; border-top: 1px solid #27272a; margin-top: 8px;
+`;
+
+function logo() {
+  return `
+    <div style="margin-bottom: 28px;">
+      <span style="font-size: 20px; font-weight: 700; color: #a78bfa; letter-spacing: -0.5px;">
+        ⬡ MetricMonitor
+      </span>
+    </div>
+  `;
+}
+
+function metricRow(label: string, value: string, color = '#e4e4e7') {
+  return `
+    <tr>
+      <td style="padding: 10px 0; color: #71717a; font-size: 13px; border-bottom: 1px solid #27272a;">${label}</td>
+      <td style="padding: 10px 0; text-align: right; font-weight: 600; color: ${color}; font-size: 13px; border-bottom: 1px solid #27272a;">${value}</td>
+    </tr>
+  `;
+}
+
+function ctaButton(text: string, href: string) {
+  return `
+    <a href="${href}" style="
+      display: inline-block; margin-top: 24px;
+      background: #7c3aed; color: #ffffff;
+      font-size: 14px; font-weight: 600;
+      padding: 12px 28px; border-radius: 8px;
+      text-decoration: none; text-align: center;
+    ">${text}</a>
+  `;
+}
+
+// ─── Alert Email ────────────────────────────────────────────────────────────
+export function alertEmailHtml(opts: {
+  trackerName: string;
+  metric: string;
+  current: number;
+  baseline: number;
+  propertyName?: string;
+  dashboardUrl?: string;
+}): string {
+  const { trackerName, metric, current, baseline, propertyName, dashboardUrl = 'https://app.metricmonitor.io' } = opts;
+  const dropPct = baseline > 0 ? Math.round(((baseline - current) / baseline) * 100) : 0;
+  const formattedMetric = metric.replace(/([A-Z])/g, ' $1').trim();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚨 Alert: ${trackerName}</title></head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER}">
+    <div style="${CARD}">
+      ${logo()}
+
+      <div style="background: #450a0a; border: 1px solid #7f1d1d; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;">
+        <span style="color: #ef4444; font-size: 22px; font-weight: 700;">🚨 Alert Triggered</span>
+        <p style="margin: 6px 0 0; color: #fca5a5; font-size: 14px;">
+          Your tracker <strong>"${trackerName}"</strong> has detected an anomaly.
+          ${propertyName ? `Property: <strong>${propertyName}</strong>` : ''}
+        </p>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        ${metricRow('Metric', formattedMetric)}
+        ${metricRow('Baseline (Expected)', baseline.toLocaleString())}
+        ${metricRow('Current (Actual)', current.toLocaleString(), '#ef4444')}
+        ${metricRow('Drop', `${dropPct}%`, '#ef4444')}
+        ${metricRow('Detected At', new Date().toUTCString())}
+      </table>
+
+      <div style="text-align: center;">
+        ${ctaButton('View Dashboard →', dashboardUrl)}
+      </div>
+    </div>
+
+    <p style="${FOOTER}">
+      You are receiving this because you have alert notifications enabled.<br>
+      Manage your preferences in your <a href="${dashboardUrl}/settings" style="color: #a78bfa;">MetricMonitor Settings</a>.
+      <br><br>© ${new Date().getFullYear()} MetricMonitor. All rights reserved.
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Recovery Email ──────────────────────────────────────────────────────────
+export function recoveryEmailHtml(opts: {
+  trackerName: string;
+  metric: string;
+  current: number;
+  baseline: number;
+  propertyName?: string;
+  dashboardUrl?: string;
+}): string {
+  const { trackerName, metric, current, baseline, propertyName, dashboardUrl = 'https://app.metricmonitor.io' } = opts;
+  const formattedMetric = metric.replace(/([A-Z])/g, ' $1').trim();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✅ Resolved: ${trackerName}</title></head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER}">
+    <div style="${CARD}">
+      ${logo()}
+
+      <div style="background: #052e16; border: 1px solid #14532d; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;">
+        <span style="color: #22c55e; font-size: 22px; font-weight: 700;">✅ All Clear — Recovered</span>
+        <p style="margin: 6px 0 0; color: #86efac; font-size: 14px;">
+          <strong>"${trackerName}"</strong> has returned to normal levels.
+          ${propertyName ? `Property: <strong>${propertyName}</strong>` : ''}
+        </p>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        ${metricRow('Metric', formattedMetric)}
+        ${metricRow('Baseline', baseline.toLocaleString())}
+        ${metricRow('Current (Recovered)', current.toLocaleString(), '#22c55e')}
+        ${metricRow('Resolved At', new Date().toUTCString())}
+      </table>
+
+      <div style="text-align: center;">
+        ${ctaButton('View Dashboard →', dashboardUrl)}
+      </div>
+    </div>
+
+    <p style="${FOOTER}">
+      © ${new Date().getFullYear()} MetricMonitor. All rights reserved.
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Welcome Email ───────────────────────────────────────────────────────────
+export function welcomeEmailHtml(opts: {
+  userFirstName?: string;
+  dashboardUrl?: string;
+}): string {
+  const { userFirstName = 'there', dashboardUrl = 'https://app.metricmonitor.io' } = opts;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to MetricMonitor</title></head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER}">
+    <div style="${CARD}">
+      ${logo()}
+      <h1 style="color: #e4e4e7; font-size: 24px; font-weight: 700; margin: 0 0 12px;">
+        Welcome, ${userFirstName}! 👋
+      </h1>
+      <p style="color: #a1a1aa; font-size: 15px; line-height: 1.7; margin: 0 0 20px;">
+        Your MetricMonitor account is set up and ready. You now have a real-time GA4 alerting engine monitoring your properties on autopilot.
+      </p>
+
+      <div style="background: #1c1c2e; border: 1px solid #3b3b5c; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+        <p style="color: #a78bfa; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 12px;">🚀 Next Steps</p>
+        <p style="color: #c4b5fd; font-size: 14px; margin: 6px 0;">1. Connect your Google Analytics account</p>
+        <p style="color: #c4b5fd; font-size: 14px; margin: 6px 0;">2. Select the GA4 Properties you want to monitor</p>
+        <p style="color: #c4b5fd; font-size: 14px; margin: 6px 0;">3. Create your first Tracker (or use a Quick Preset)</p>
+        <p style="color: #c4b5fd; font-size: 14px; margin: 6px 0;">4. Sit back — we will alert you if anything goes wrong</p>
+      </div>
+
+      <div style="text-align: center;">
+        ${ctaButton('Go to Dashboard →', dashboardUrl)}
+      </div>
+    </div>
+
+    <p style="${FOOTER}">
+      © ${new Date().getFullYear()} MetricMonitor. All rights reserved.
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
+// ─── GA4 Property Added Email ────────────────────────────────────────────────
+export function ga4AddedEmailHtml(opts: {
+  propertyName: string;
+  ga4PropertyId: string;
+  dashboardUrl?: string;
+}): string {
+  const { propertyName, ga4PropertyId, dashboardUrl = 'https://app.metricmonitor.io' } = opts;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Property Connected</title></head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER}">
+    <div style="${CARD}">
+      ${logo()}
+      <h2 style="color: #e4e4e7; font-size: 20px; font-weight: 700; margin: 0 0 8px;">
+        ✅ New GA4 Property Connected
+      </h2>
+      <p style="color: #a1a1aa; font-size: 14px; margin: 0 0 24px;">
+        A new Google Analytics 4 property has been added to your workspace and is now being monitored.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        ${metricRow('Property Name', propertyName, '#a78bfa')}
+        ${metricRow('GA4 Property ID', ga4PropertyId)}
+        ${metricRow('Connected At', new Date().toUTCString())}
+      </table>
+
+      <div style="text-align: center;">
+        ${ctaButton('Create a Tracker →', dashboardUrl)}
+      </div>
+    </div>
+    <p style="${FOOTER}">© ${new Date().getFullYear()} MetricMonitor. All rights reserved.</p>
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Revoked Token Alert Email ───────────────────────────────────────────────
+export function revokedTokenEmailHtml(opts: {
+  workspaceName?: string;
+  dashboardUrl?: string;
+}): string {
+  const { workspaceName = 'your workspace', dashboardUrl = 'https://app.metricmonitor.io' } = opts;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Action Required — Reconnect Google Analytics</title></head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER}">
+    <div style="${CARD}">
+      ${logo()}
+      <div style="background: #451a03; border: 1px solid #78350f; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;">
+        <span style="color: #f97316; font-size: 20px; font-weight: 700;">⚠️ Action Required</span>
+        <p style="margin: 6px 0 0; color: #fed7aa; font-size: 14px;">
+          Your Google Analytics connection for <strong>${workspaceName}</strong> has expired or been revoked.
+          Monitoring has been paused for your properties.
+        </p>
+      </div>
+
+      <p style="color: #a1a1aa; font-size: 14px; line-height: 1.7; margin: 0 0 20px;">
+        This happens when you revoke access from Google or the authorization token expires. To resume monitoring, please reconnect your Google account.
+      </p>
+
+      <div style="text-align: center;">
+        ${ctaButton('Reconnect Google Analytics →', `${dashboardUrl}?reconnect=1`)}
+      </div>
+    </div>
+    <p style="${FOOTER}">© ${new Date().getFullYear()} MetricMonitor. All rights reserved.</p>
+  </div>
+</body>
+</html>`;
+}
