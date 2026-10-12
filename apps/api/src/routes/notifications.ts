@@ -26,7 +26,12 @@ notificationsRoutes.get('/', async (c) => {
     limit: 50
   });
 
-  return c.json({ notifications: data });
+  const sanitized = data.map(n => ({
+    ...n,
+    createdAt: n.createdAt && !isNaN(new Date(n.createdAt).getTime()) ? n.createdAt : new Date()
+  }));
+
+  return c.json({ notifications: sanitized });
 });
 
 // PATCH /api/notifications/read-all

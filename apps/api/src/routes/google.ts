@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { getDb } from '../db';
-import { googleCredentials, workspaces } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { googleCredentials, workspaces, properties, trackers, trackerEvents } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
 import { requireAuth } from '../middleware/auth';
 
 const googleRoutes = new Hono<{ Bindings: any; Variables: { userId: string } }>();
@@ -92,7 +92,6 @@ googleRoutes.get('/callback', async (c) => {
     return c.json({ error: 'OAuth failed', details: error.message }, 500);
   }
 });
-import { properties } from '../db/schema';
 
 // 3. List GA4 Properties from Google (fetches from GA Admin API)
 googleRoutes.get('/properties', async (c) => {
@@ -224,6 +223,40 @@ googleRoutes.post('/properties/add', async (c) => {
   }
 
   return c.json({ property: newProperty });
+});
+
+// 5. Delete a GA4 property from monitoring (and its trackers/events)
+googleRoutes.delete('/properties/:id', async (c) => {
+  const userId = c.get('userId');
+  const propertyId = c.req.param('id');
+  const db = getDb(c.env);
+
+  const workspace = await db.query.workspaces.findFirst({
+    where: eq(workspaces.ownerId, userId)
+  });
+
+  if (!workspace) {
+    return c.json({ error: 'Workspace not found' }, 404);
+  }
+
+  const existing = await db.query.properties.findFirst({
+    where: and(eq(properties.id, propertyId), eq(properties.workspaceId, workspace.id))
+  });
+
+  if (!existing) {
+    return c.json({ error: 'Property not found in workspace' }, 404);
+  }
+
+  // Delete associated alert events first (foreign keys)
+  await db.delete(trackerEvents).where(eq(trackerEvents.propertyId, propertyId));
+
+  // Delete associated trackers
+  await db.delete(trackers).where(eq(trackers.propertyId, propertyId));
+
+  // Delete property
+  await db.delete(properties).where(eq(properties.id, propertyId));
+
+  return c.json({ success: true, message: `Removed property "${existing.name}"` });
 });
 
 export default googleRoutes;

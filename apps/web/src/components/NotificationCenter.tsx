@@ -102,7 +102,9 @@ export function NotificationCenter({ recentAlerts }: NotificationCenterProps) {
                         {alert.propertyName}: Expected {alert.expectedValue}, got {alert.actualValue}
                       </p>
                       <p className="text-xs text-text-muted mt-2">
-                        {new Date(alert.createdAt).toLocaleString()}
+                        {alert.createdAt && !isNaN(new Date(alert.createdAt).getTime()) && new Date(alert.createdAt).getTime() !== 0
+                          ? new Date(alert.createdAt).toLocaleString()
+                          : 'Just now'}
                       </p>
                     </div>
                   </div>

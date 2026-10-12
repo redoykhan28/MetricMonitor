@@ -71,7 +71,7 @@ dashboardRoutes.get('/', async (c) => {
   // 5. Count active trackers
   const [trackersCount] = await db.select({ count: sql`count(*)` })
     .from(trackers)
-    .where(and(inArray(trackers.propertyId, propertyIds), eq(trackers.isActive, 1)));
+    .where(and(inArray(trackers.propertyId, propertyIds), eq(trackers.isActive, true)));
 
   // 6. Count recent alerts
   const [alertsCount] = await db.select({ count: sql`count(*)` })
@@ -103,7 +103,9 @@ dashboardRoutes.get('/properties', async (c) => {
 
   const userProperties = await db.select({
     id: properties.id,
-    name: properties.name
+    name: properties.name,
+    ga4PropertyId: properties.ga4PropertyId,
+    domain: properties.domain
   }).from(properties).where(eq(properties.workspaceId, workspace.id));
 
   return c.json({ properties: userProperties });
@@ -128,12 +130,17 @@ dashboardRoutes.get('/chart-data', async (c) => {
 
   if (!credentials) return c.json({ chartData: [] });
 
-  // Get the first property
-  const property = await db.query.properties.findFirst({
-    where: eq(properties.workspaceId, workspace.id)
-  });
+  // Support propertyId query param if provided, otherwise default to first property
+  const requestedPropertyId = c.req.query('propertyId');
+  const property = requestedPropertyId
+    ? await db.query.properties.findFirst({
+        where: and(eq(properties.workspaceId, workspace.id), eq(properties.id, requestedPropertyId))
+      })
+    : await db.query.properties.findFirst({
+        where: eq(properties.workspaceId, workspace.id)
+      });
 
-  if (!property) return c.json({ chartData: [] });
+  if (!property) return c.json({ chartData: [], propertyName: '' });
 
   // Refresh token if expired
   let accessToken = credentials.accessToken;
@@ -176,26 +183,62 @@ dashboardRoutes.get('/chart-data', async (c) => {
     ? new Date(startDateParam) 
     : new Date(Date.now() - 6 * 86400000); // default: 7 days
 
+  const ga4Url = `https://analyticsdata.googleapis.com/v1beta/properties/${property.ga4PropertyId}:runReport`;
+  const ga4Body = JSON.stringify({
+    dateRanges: [{ startDate: formatDate(startDate), endDate: formatDate(endDate) }],
+    dimensions: [{ name: 'date' }],
+    metrics: [
+      { name: 'activeUsers' },
+      { name: 'sessions' }
+    ],
+    orderBys: [{ dimension: { dimensionName: 'date' }, desc: false }]
+  });
+
+  const doGA4Fetch = async (token: string) => fetch(ga4Url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: ga4Body
+  });
+
   try {
-    const ga4Res = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${property.ga4PropertyId}:runReport`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          dateRanges: [{ startDate: formatDate(startDate), endDate: formatDate(endDate) }],
-          dimensions: [{ name: 'date' }],
-          metrics: [
-            { name: 'activeUsers' },
-            { name: 'sessions' }
-          ],
-          orderBys: [{ dimension: { dimensionName: 'date' }, desc: false }]
-        })
+    let ga4Res = await doGA4Fetch(accessToken);
+
+    // If 401, force a token refresh and retry once — handles stale DB timestamps
+    if (ga4Res.status === 401) {
+      console.log('[Chart] Got 401 from GA4 — forcing token refresh and retrying...');
+      try {
+        const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: c.env.GOOGLE_CLIENT_ID || '',
+            client_secret: c.env.GOOGLE_CLIENT_SECRET || '',
+            refresh_token: credentials.refreshToken,
+            grant_type: 'refresh_token'
+          })
+        });
+        const tokenData = await refreshRes.json() as any;
+        if (tokenData.access_token) {
+          accessToken = tokenData.access_token;
+          await db.update(googleCredentials)
+            .set({
+              accessToken: tokenData.access_token,
+              expiresAt: new Date(Date.now() + (tokenData.expires_in || 3600) * 1000)
+            })
+            .where(eq(googleCredentials.workspaceId, workspace.id));
+          // Retry the GA4 call with the fresh token
+          ga4Res = await doGA4Fetch(accessToken);
+          console.log('[Chart] Token refreshed successfully, retried GA4 call.');
+        } else {
+          // Token is fully revoked — can't refresh
+          console.error('[Chart] Token refresh returned no access_token. Token may be revoked.');
+          return c.json({ chartData: [], error: 'Google token expired. Please reconnect your Google account from Settings.' });
+        }
+      } catch (refreshErr) {
+        console.error('[Chart] Token refresh attempt failed:', refreshErr);
+        return c.json({ chartData: [], error: 'Failed to refresh Google token.' });
       }
-    );
+    }
 
     if (!ga4Res.ok) {
       const errorText = await ga4Res.text();
@@ -208,13 +251,11 @@ dashboardRoutes.get('/chart-data', async (c) => {
 
     const chartData = (ga4Data.rows || []).map((row: any) => {
       const rawDate = row.dimensionValues?.[0]?.value || '';
-      // GA4 returns dates as YYYYMMDD, format to readable
       const year = rawDate.substring(0, 4);
       const month = rawDate.substring(4, 6);
       const day = rawDate.substring(6, 8);
       const dateObj = new Date(`${year}-${month}-${day}`);
       const label = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-
       return {
         date: label,
         activeUsers: parseInt(row.metricValues?.[0]?.value || '0', 10),
@@ -222,7 +263,7 @@ dashboardRoutes.get('/chart-data', async (c) => {
       };
     });
 
-    return c.json({ chartData, propertyName: property.name });
+    return c.json({ chartData, propertyName: property.name, propertyId: property.id });
   } catch (err) {
     console.error('[Chart] Fetch error:', err);
     return c.json({ chartData: [], error: 'Failed to fetch GA4 data' });

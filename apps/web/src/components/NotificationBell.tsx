@@ -1,4 +1,4 @@
-import { Bell, Check, CircleAlert, CheckCircle2, Rocket, ExternalLink } from 'lucide-react';
+import { Bell, CircleAlert, CheckCircle2, Rocket } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 
@@ -22,6 +22,7 @@ export function NotificationBell() {
   const fetchNotifications = async () => {
     try {
       const token = await getToken();
+      if (!token) return;
       const res = await fetch('http://localhost:8787/api/notifications', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -94,6 +95,13 @@ export function NotificationBell() {
     }
   };
 
+  const formatDate = (dateVal: string | number | null | undefined) => {
+    if (!dateVal) return 'Just now';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime()) || d.getTime() === 0) return 'Just now';
+    return d.toLocaleString();
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button 
@@ -128,7 +136,8 @@ export function NotificationBell() {
                 {notifications.map(n => (
                   <div 
                     key={n.id} 
-                    className={`p-4 flex gap-3 transition-colors ${!n.isRead ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-background'}`}
+                    onClick={() => !n.isRead && markAsRead(n.id)}
+                    className={`p-4 flex gap-3 transition-colors cursor-pointer ${!n.isRead ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-background'}`}
                   >
                     <div className="flex-shrink-0 mt-0.5">
                       {getIcon(n.type)}
@@ -141,7 +150,7 @@ export function NotificationBell() {
                         {n.message}
                       </p>
                       <p className="text-[10px] text-text-muted mt-2 uppercase tracking-wide">
-                        {new Date(n.createdAt).toLocaleString()}
+                        {formatDate(n.createdAt)}
                       </p>
                     </div>
                     {/* Single mark as read button removed since we mark all as read automatically */}

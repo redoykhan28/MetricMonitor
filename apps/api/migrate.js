@@ -17,6 +17,13 @@ async function run() {
   } catch (e) {
     console.log('Columns might already exist', e.message);
   }
+
+  try {
+    await client.execute(`ALTER TABLE trackers ADD COLUMN rule_definition TEXT;`);
+    console.log('Added rule_definition to trackers table');
+  } catch (e) {
+    console.log('rule_definition column might already exist', e.message);
+  }
   
   try {
     await client.execute(`

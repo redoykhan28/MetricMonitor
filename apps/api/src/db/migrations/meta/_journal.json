@@ -29,6 +29,13 @@
       "when": 1791194270961,
       "tag": "0003_outgoing_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791272400000,
+      "tag": "0004_compound_rules",
+      "breakpoints": true
     }
   ]
 }

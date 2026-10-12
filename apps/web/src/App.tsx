@@ -1,5 +1,5 @@
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth } from "@clerk/clerk-react";
-import { Activity, LayoutDashboard, Plus, AlertTriangle, ArrowRight, CheckCircle2, Link, Bell, Settings } from "lucide-react";
+import { Activity, LayoutDashboard, Plus, AlertTriangle, ArrowRight, CheckCircle2, Link, Settings, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -16,10 +16,14 @@ import { AlertHistory } from "./components/AlertHistory";
 export default function App() {
   const { getToken } = useAuth();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingTracker, setEditingTracker] = useState<any | null>(null);
   const [isPropertySelectorOpen, setIsPropertySelectorOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [chartRefreshKey, setChartRefreshKey] = useState(0);
+  const [selectedPropertyForNewTracker, setSelectedPropertyForNewTracker] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [activeChartPropertyId, setActiveChartPropertyId] = useState<string | undefined>(undefined);
   const [stats, setStats] = useState({ activeTrackers: 0, monitoredProperties: 0, recentAlerts: 0 });
 
   // Fetch real dashboard stats from the API
@@ -55,6 +59,7 @@ export default function App() {
       if (event.data?.type === 'GA4_CONNECTED') {
         toast.success('🎉 Google Analytics connected!');
         setIsGoogleConnected(true);
+        setChartRefreshKey(k => k + 1);
         // Automatically open the Property Selector after connection
         setTimeout(() => setIsPropertySelectorOpen(true), 500);
         fetchDashboard();
@@ -98,8 +103,22 @@ export default function App() {
   // trackerKey is used to force re-render TrackerManager after creation
   const [trackerKey, setTrackerKey] = useState(0);
 
+  const handleOpenCreateTracker = (propId?: string) => {
+    setEditingTracker(null);
+    setSelectedPropertyForNewTracker(propId);
+    setIsDrawerOpen(true);
+  };
+
+  const handleEditTracker = (tracker: any) => {
+    setEditingTracker(tracker);
+    setSelectedPropertyForNewTracker(tracker.propertyId);
+    setIsDrawerOpen(true);
+  };
+
   const handleTrackerCreated = () => {
     setIsDrawerOpen(false);
+    setEditingTracker(null);
+    setSelectedPropertyForNewTracker(undefined);
     setTrackerKey(k => k + 1);
     fetchDashboard();
   };
@@ -121,14 +140,16 @@ export default function App() {
         </div>
         
         <div className="flex items-center gap-4">
-          <NotificationBell />
-          <button 
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-          <div className="h-6 w-px bg-border mx-1"></div>
+          <SignedIn>
+            <NotificationBell />
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <div className="h-6 w-px bg-border mx-1"></div>
+          </SignedIn>
           <ColorPalette />
           <ThemeToggle />
           <SignedOut>
@@ -151,7 +172,7 @@ export default function App() {
               Smart GA4 Alerting for <span className="text-primary">Pro Teams</span>
             </h1>
             <p className="text-text-muted text-lg max-w-2xl">
-              Never miss a sudden traffic drop again. Build powerful, Tag Manager-style rules to monitor your most critical Google Analytics 4 properties on autopilot.
+              Never miss a sudden traffic drop again. Build powerful multi-condition rules to monitor your most critical Google Analytics 4 properties on autopilot.
             </p>
             <SignInButton mode="modal">
               <button className="bg-primary text-background font-bold text-lg px-8 py-4 rounded-full hover:bg-primary-hover transition-transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(var(--color-primary),0.3)] cursor-pointer">
@@ -196,9 +217,18 @@ export default function App() {
                 <div>
                   <h1 className="text-3xl font-bold">Workspace Overview</h1>
                   {isGoogleConnected && (
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span className="text-sm text-green-500 font-medium">Google Analytics Connected</span>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <span className="text-sm text-green-500 font-medium">Google Analytics Connected</span>
+                      </div>
+                      <button 
+                        onClick={handleConnectGoogle}
+                        className="text-xs text-text-muted hover:text-primary transition-colors flex items-center gap-1 px-2 py-0.5 rounded border border-border/60 hover:border-primary/40 bg-surface/50 cursor-pointer"
+                        title="Reconnect or refresh Google account"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Reconnect
+                      </button>
                     </div>
                   )}
                 </div>
@@ -267,22 +297,30 @@ export default function App() {
                   </div>
                 )}
                 
-                <MetricChart />
+                <MetricChart 
+                  onReconnect={handleConnectGoogle} 
+                  refreshTrigger={chartRefreshKey} 
+                  activePropertyId={activeChartPropertyId}
+                  onPropertyChange={setActiveChartPropertyId}
+                />
               </div>
 
-              {/* Tracker Manager */}
-              <div className="glass-panel p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold">Your Trackers</h2>
-                  <button 
-                    onClick={() => setIsDrawerOpen(true)}
-                    className="text-sm text-primary hover:text-primary-hover font-medium transition-colors cursor-pointer flex items-center gap-1"
-                    disabled={stats.monitoredProperties === 0}
-                  >
-                    <Plus className="w-4 h-4" /> Add New
-                  </button>
-                </div>
-                <TrackerManager key={trackerKey} />
+              {/* Monitored Properties & Trackers */}
+              <div className="glass-panel p-6 md:p-8">
+                <TrackerManager 
+                  key={trackerKey} 
+                  onEditTracker={handleEditTracker} 
+                  onAddTrackerForProperty={handleOpenCreateTracker}
+                  onAddProperty={handleAddProperty}
+                  onViewPropertyChart={(propId) => {
+                    setActiveChartPropertyId(propId);
+                    document.getElementById('revenue-traffic-chart')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  onPropertyDeleted={() => {
+                    fetchDashboard();
+                    setChartRefreshKey(k => k + 1);
+                  }}
+                />
               </div>
 
               {/* Alert / Incident History */}
@@ -307,12 +345,14 @@ export default function App() {
 
       <GTMDrawer 
         isOpen={isDrawerOpen} 
-        onClose={() => setIsDrawerOpen(false)}
-        title="Create New Tracker"
+        onClose={() => { setIsDrawerOpen(false); setEditingTracker(null); setSelectedPropertyForNewTracker(undefined); }}
+        title={editingTracker ? "Edit Tracker & Conditions" : "Create New Tracker"}
       >
         <CreateTrackerForm 
+          initialTracker={editingTracker}
+          initialPropertyId={selectedPropertyForNewTracker}
           onSuccess={handleTrackerCreated}
-          onCancel={() => setIsDrawerOpen(false)}
+          onCancel={() => { setIsDrawerOpen(false); setEditingTracker(null); setSelectedPropertyForNewTracker(undefined); }}
         />
       </GTMDrawer>
 
@@ -320,6 +360,8 @@ export default function App() {
       <SettingsDrawer 
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
+        isGoogleConnected={isGoogleConnected}
+        onReconnectGoogle={handleConnectGoogle}
       />
     </div>
   );

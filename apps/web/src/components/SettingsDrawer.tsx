@@ -1,4 +1,4 @@
-import { X, Bell, Mail, Hash, Save, Loader2 } from 'lucide-react';
+import { X, Bell, Mail, Hash, Save, Loader2, Link, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@clerk/clerk-react';
@@ -6,9 +6,11 @@ import { useAuth } from '@clerk/clerk-react';
 interface SettingsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  isGoogleConnected?: boolean;
+  onReconnectGoogle?: () => void;
 }
 
-export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
+export function SettingsDrawer({ isOpen, onClose, isGoogleConnected, onReconnectGoogle }: SettingsDrawerProps) {
   const { getToken } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,6 +119,48 @@ export function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps) {
           ) : (
             <form id="settings-form" onSubmit={handleSave} className="space-y-8">
               
+              {/* Google Account Integration */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Link className="w-4 h-4 text-text-muted" />
+                  <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider">Google Analytics Integration</h3>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-background/50 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-text-main text-sm">Google Account</span>
+                      {isGoogleConnected ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                          <CheckCircle2 className="w-3 h-3" /> Connected
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-text-muted bg-surface px-2 py-0.5 rounded-full border border-border">
+                          Not Connected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted">
+                      OAuth token enables GA4 Data API fetching and anomaly rule evaluations.
+                    </p>
+                  </div>
+
+                  {onReconnectGoogle && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onReconnectGoogle();
+                        onClose();
+                      }}
+                      className="bg-surface hover:bg-border/60 border border-border text-text-main text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ml-3"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-primary" />
+                      {isGoogleConnected ? 'Reconnect' : 'Connect'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Global Settings */}
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider">Global Preferences</h3>

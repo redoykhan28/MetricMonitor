@@ -1,7 +1,7 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "@clerk/clerk-react";
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Calendar } from "lucide-react";
+import { Loader2, Calendar, AlertTriangle, RefreshCw, Globe } from "lucide-react";
 
 type ChartPoint = { date: string; activeUsers: number; sessions: number };
 
@@ -18,12 +18,28 @@ const RANGE_OPTIONS: RangeOption[] = [
 
 const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
-export function MetricChart() {
+interface MetricChartProps {
+  onReconnect?: () => void;
+  refreshTrigger?: number;
+  activePropertyId?: string;
+  onPropertyChange?: (propertyId: string) => void;
+}
+
+export function MetricChart({ onReconnect, refreshTrigger, activePropertyId, onPropertyChange }: MetricChartProps = {}) {
   const { getToken } = useAuth();
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [propertyName, setPropertyName] = useState('');
+  const [properties, setProperties] = useState<{ id: string; name: string }[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(activePropertyId || '');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Keep selectedPropertyId in sync if parent changes activePropertyId
+  useEffect(() => {
+    if (activePropertyId && activePropertyId !== selectedPropertyId) {
+      setSelectedPropertyId(activePropertyId);
+    }
+  }, [activePropertyId]);
 
   // Range state
   const [selectedRange, setSelectedRange] = useState<RangeOption>(RANGE_OPTIONS[0]);
@@ -32,15 +48,33 @@ export function MetricChart() {
   const [customStart, setCustomStart] = useState(formatDate(new Date(Date.now() - 6 * 86400000)));
   const [customEnd, setCustomEnd] = useState(today);
 
-  const fetchChart = useCallback(async (startDate: string, endDate: string) => {
+  // Load properties list for switching
+  useEffect(() => {
+    getToken().then(token => {
+      if (!token) return;
+      fetch('http://localhost:8787/api/dashboard/properties', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(r => r.json())
+      .then((data: any) => {
+        if (data.properties && data.properties.length > 0) {
+          setProperties(data.properties);
+        }
+      })
+      .catch(() => {});
+    });
+  }, [getToken, refreshTrigger]);
+
+  const fetchChart = useCallback(async (startDate: string, endDate: string, propId?: string) => {
     setIsLoading(true);
     setError('');
     try {
       const token = await getToken();
       if (!token) return;
 
+      const propParam = propId || selectedPropertyId ? `&propertyId=${propId || selectedPropertyId}` : '';
       const res = await fetch(
-        `http://localhost:8787/api/dashboard/chart-data?startDate=${startDate}&endDate=${endDate}`,
+        `http://localhost:8787/api/dashboard/chart-data?startDate=${startDate}&endDate=${endDate}${propParam}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -48,6 +82,9 @@ export function MetricChart() {
         const data = await res.json();
         setChartData(data.chartData || []);
         setPropertyName(data.propertyName || '');
+        if (data.propertyId && !selectedPropertyId) {
+          setSelectedPropertyId(data.propertyId);
+        }
         if (data.error) setError(data.error);
       }
     } catch (e) {
@@ -55,15 +92,15 @@ export function MetricChart() {
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, selectedPropertyId]);
 
-  // Fetch whenever range changes (not custom until user applies)
+  // Fetch whenever range changes, selected property changes, or refreshTrigger updates
   useEffect(() => {
     if (selectedRange.days === null) return; // custom — wait for Apply
     const end = new Date();
     const start = new Date(Date.now() - (selectedRange.days - 1) * 86400000);
-    fetchChart(formatDate(start), formatDate(end));
-  }, [selectedRange, fetchChart]);
+    fetchChart(formatDate(start), formatDate(end), selectedPropertyId);
+  }, [selectedRange, selectedPropertyId, fetchChart, refreshTrigger]);
 
   const handleApplyCustom = () => {
     if (customStart && customEnd) {
@@ -73,12 +110,32 @@ export function MetricChart() {
   };
 
   return (
-    <div>
+    <div id="revenue-traffic-chart">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex flex-col">
-          <h2 className="text-xl font-bold">Revenue & Traffic Trend</h2>
-          {propertyName && (
-            <p className="text-xs text-text-muted mt-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold">Revenue & Traffic Trend</h2>
+            {properties.length > 1 && (
+              <div className="flex items-center gap-1.5 ml-2">
+                <Globe className="w-3.5 h-3.5 text-primary" />
+                <select
+                  value={selectedPropertyId}
+                  onChange={e => {
+                    setSelectedPropertyId(e.target.value);
+                    if (onPropertyChange) onPropertyChange(e.target.value);
+                  }}
+                  className="bg-surface/80 border border-border hover:border-primary/50 rounded-lg px-2.5 py-1 text-xs font-semibold text-text-main outline-none focus:border-primary transition-colors cursor-pointer"
+                >
+                  {properties.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          {properties.length <= 1 && propertyName && (
+            <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
+              <Globe className="w-3 h-3 text-text-muted" />
               {propertyName}
             </p>
           )}
@@ -177,8 +234,31 @@ export function MetricChart() {
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : chartData.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-text-muted text-sm">
-            {error || 'No data available for this date range.'}
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+            {error && (error.toLowerCase().includes('token') || error.toLowerCase().includes('google') || error.toLowerCase().includes('reconnect')) ? (
+              <div className="max-w-md bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 flex flex-col items-center text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-text-main text-sm">Google Authorization Expired</p>
+                  <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                    {error}
+                  </p>
+                </div>
+                {onReconnect && (
+                  <button
+                    onClick={onReconnect}
+                    className="mt-1 bg-primary text-background font-semibold text-xs px-4 py-2 rounded-lg hover:bg-primary-hover transition-transform hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Reconnect Google Account
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-text-muted text-sm">{error || 'No data available for this date range.'}</p>
+            )}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">

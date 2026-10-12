@@ -273,3 +273,88 @@ export function revokedTokenEmailHtml(opts: {
 </body>
 </html>`;
 }
+
+// ─── Compound Alert Email ─────────────────────────────────────────────────────
+export function compoundAlertEmailHtml(opts: {
+  trackerName: string;
+  propertyName?: string;
+  conditionRows: Array<{
+    label: string;
+    actual: string;
+    expected?: string;
+  }>;
+  dashboardUrl?: string;
+}): string {
+  const { trackerName, propertyName, conditionRows, dashboardUrl = 'https://app.metricmonitor.io' } = opts;
+
+  const conditionTableRows = conditionRows.map(row => `
+    <tr>
+      <td style="padding: 10px 0; color: #71717a; font-size: 13px; border-bottom: 1px solid #27272a;">
+        🔴 ${row.label}
+      </td>
+      <td style="padding: 10px 0; text-align: right; font-weight: 600; color: #ef4444; font-size: 13px; border-bottom: 1px solid #27272a;">
+        ${row.actual}
+      </td>
+      <td style="padding: 10px 0; text-align: right; color: #52525b; font-size: 12px; border-bottom: 1px solid #27272a; padding-left: 12px;">
+        ${row.expected ? `baseline: ${row.expected}` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚨 Alert: ${trackerName}</title></head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER}">
+    <div style="${CARD}">
+      ${logo()}
+
+      <div style="background: #450a0a; border: 1px solid #7f1d1d; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;">
+        <span style="color: #ef4444; font-size: 22px; font-weight: 700;">🚨 Anomaly Detected</span>
+        <p style="margin: 6px 0 0; color: #fca5a5; font-size: 14px;">
+          Your compound rule <strong>"${trackerName}"</strong> has triggered.
+          ${propertyName ? `Property: <strong>${propertyName}</strong>` : ''}
+        </p>
+      </div>
+
+      <p style="color: #a1a1aa; font-size: 13px; margin: 0 0 16px; line-height: 1.6;">
+        The following condition group matched — all conditions within the group were true simultaneously:
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="text-align: left; color: #52525b; font-size: 11px; text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid #3f3f46;">Condition</th>
+            <th style="text-align: right; color: #52525b; font-size: 11px; text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid #3f3f46;">Actual Value</th>
+            <th style="text-align: right; color: #52525b; font-size: 11px; text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid #3f3f46; padding-left: 12px;">Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${conditionTableRows}
+        </tbody>
+      </table>
+
+      <div style="background: #1c1c1c; border-radius: 8px; padding: 14px 16px; margin-top: 20px;">
+        <p style="color: #52525b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 8px;">What to investigate</p>
+        <p style="color: #a1a1aa; font-size: 13px; margin: 0; line-height: 1.6;">
+          Check your GA4 setup for cross-domain tracking issues, payment gateway referral attribution,
+          consent banner failures, broken UTM parameters, or double-tracking tags.
+        </p>
+      </div>
+
+      <div style="text-align: center;">
+        ${ctaButton('Investigate in Dashboard →', dashboardUrl)}
+      </div>
+    </div>
+
+    <p style="${FOOTER}">
+      You are receiving this because you have alert notifications enabled.<br>
+      Manage your preferences in your <a href="${dashboardUrl}/settings" style="color: #a78bfa;">MetricMonitor Settings</a>.
+      <br><br>© ${new Date().getFullYear()} MetricMonitor. All rights reserved.
+    </p>
+  </div>
+</body>
+</html>`;
+}
+

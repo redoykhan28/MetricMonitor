@@ -7,11 +7,15 @@ import {
   welcomeEmailHtml,
   ga4AddedEmailHtml,
   revokedTokenEmailHtml,
+  compoundAlertEmailHtml,
 } from './emailTemplates';
+import { ConditionResult, MetricCondition, DimensionCondition } from '../types/rules';
+
 
 export type EventType = 'welcome' | 'ga4_added' | 'tracker_added' | 'alert' | 'revoked_token';
 
 interface AlertMeta {
+  trackerId?: string;
   trackerName?: string;
   metric?: string;
   current?: number;
@@ -93,6 +97,7 @@ export async function dispatchEvent(
     message,
     type: type === 'revoked_token' ? 'alert' : type,
     isRead: false,
+    createdAt: new Date(),
   });
 
   // 2. Fetch workspace settings
@@ -238,6 +243,7 @@ export async function dispatchRecovery(
     message: `${opts.metric} has returned to normal. Current: ${opts.current.toLocaleString()}, Baseline: ${opts.baseline.toLocaleString()}.`,
     type: 'alert',
     isRead: false,
+    createdAt: new Date(),
   });
 
   // Discord recovery
@@ -254,4 +260,70 @@ export async function dispatchRecovery(
   if (opts.emails.length > 0) {
     await sendViaResend(env, opts.emails, subject, html);
   }
+}
+
+// ─── Compound Alert Dispatcher ────────────────────────────────────────────────
+export async function dispatchCompoundAlert(
+  env: any,
+  workspaceId: string,
+  opts: {
+    trackerName: string;
+    propertyName?: string;
+    summary: string;
+    conditionResults: ConditionResult[];
+    emails: string[];
+    discordWebhookUrl?: string;
+  }
+): Promise<void> {
+  const db = getDb(env);
+  const title = `🚨 Anomaly: "${opts.trackerName}" compound rule triggered`;
+  const dashboardUrl = env.DASHBOARD_URL || 'https://app.metricmonitor.io';
+
+  // 1. In-app notification
+  await db.insert(notifications).values({
+    id: crypto.randomUUID(),
+    workspaceId,
+    title,
+    message: opts.summary,
+    type: 'alert',
+    isRead: false,
+    createdAt: new Date(),
+  });
+
+  // 2. Discord
+  if (opts.discordWebhookUrl) {
+    await sendViaDiscord(opts.discordWebhookUrl, title, opts.summary, 0xef4444);
+  }
+
+  // 3. Email
+  if (opts.emails.length === 0) return;
+
+  // Build per-condition rows for the email template
+  const conditionRows = opts.conditionResults.map(r => {
+    if (r.condition.type === 'metric') {
+      const mc = r.condition as MetricCondition;
+      const isRelative = mc.operator === 'drops_by' || mc.operator === 'spikes_by';
+      return {
+        label: `${mc.metric} ${mc.operator.replace(/_/g, ' ')} ${mc.thresholdValue}${isRelative ? '%' : ''}`,
+        actual: String(r.actualValue),
+        expected: isRelative && r.baselineValue !== undefined ? String(r.baselineValue) : undefined,
+      };
+    } else {
+      const dc = r.condition as DimensionCondition;
+      return {
+        label: `${dc.dimension} ${dc.operator.replace(/_/g, ' ')} "${dc.value}"`,
+        actual: String(r.actualValue),
+        expected: undefined,
+      };
+    }
+  });
+
+  const html = compoundAlertEmailHtml({
+    trackerName: opts.trackerName,
+    propertyName: opts.propertyName,
+    conditionRows,
+    dashboardUrl,
+  });
+
+  await sendViaResend(env, opts.emails, title, html);
 }

@@ -7,7 +7,7 @@ export const users = sqliteTable('users', {
   email: text('email').notNull(),
   firstName: text('first_name'),
   lastName: text('last_name'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).default(sql`(unixepoch())`),
 });
 
 // Workspaces (Multi-tenant)
@@ -15,7 +15,7 @@ export const workspaces = sqliteTable('workspaces', {
   id: text('id').primaryKey(), // e.g. UUID
   name: text('name').notNull(),
   ownerId: text('owner_id').notNull().references(() => users.id),
-  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).default(sql`(unixepoch())`),
 });
 
 // Workspace Settings
@@ -28,7 +28,7 @@ export const workspaceSettings = sqliteTable('workspace_settings', {
   emailOnGa4Added: integer('email_on_ga4_added', { mode: 'boolean' }).default(false),
   emailOnTrackerAdded: integer('email_on_tracker_added', { mode: 'boolean' }).default(false),
   discordWebhookUrl: text('discord_webhook_url'),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).default(sql`(unixepoch())`),
 });
 
 // In-App Notifications
@@ -39,7 +39,7 @@ export const notifications = sqliteTable('notifications', {
   message: text('message').notNull(),
   type: text('type').notNull(), // 'welcome', 'ga4_added', 'tracker_added', 'alert'
   isRead: integer('is_read', { mode: 'boolean' }).default(false),
-  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).default(sql`(unixepoch())`),
 });
 
 // Google OAuth Credentials
@@ -50,7 +50,7 @@ export const googleCredentials = sqliteTable('google_credentials', {
   refreshToken: text('refresh_token').notNull(),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
   email: text('email').notNull(), // The Google account email
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).default(sql`(unixepoch())`),
 });
 
 // GA4 Properties
@@ -61,7 +61,7 @@ export const properties = sqliteTable('properties', {
   ga4PropertyId: text('ga4_property_id').notNull(), // e.g. "123456789"
   domain: text('domain'),
   timezone: text('timezone').default('UTC'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).default(sql`(unixepoch())`),
 });
 
 // Trackers (The Alerting Rules)
@@ -70,18 +70,23 @@ export const trackers = sqliteTable('trackers', {
   propertyId: text('property_id').notNull().references(() => properties.id),
   name: text('name').notNull(), // e.g. "Sudden Traffic Drop"
   
-  // The rule condition
+  // Legacy single-metric fields (kept for backwards compatibility)
   metric: text('metric').notNull(), // e.g. "activeUsers", "purchaseRevenue"
   condition: text('condition').notNull(), // "drops_by", "greater_than"
   thresholdValue: integer('threshold_value').notNull(), // e.g. 40 (for 40%)
   compareWindow: text('compare_window').notNull(), // e.g. "previous_day", "avg_7_days"
+
+  // Compound Rule Engine — JSON-serialized TrackerRuleDefinition
+  // When present, this OVERRIDES the legacy single-metric fields above.
+  // When null, the engine falls back to the legacy fields for backwards compatibility.
+  ruleDefinition: text('rule_definition'), // JSON: TrackerRuleDefinition | null
   
   // State and cooldowns
   isActive: integer('is_active', { mode: 'boolean' }).default(true),
   cooldownHours: integer('cooldown_hours').default(4), // Prevent spam
   lastTriggeredAt: integer('last_triggered_at', { mode: 'timestamp' }),
   
-  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).default(sql`(unixepoch())`),
 });
 
 // Alert History / Incident Logs
@@ -97,5 +102,5 @@ export const trackerEvents = sqliteTable('tracker_events', {
   status: text('status').default('triggered'), // 'triggered', 'resolved', 'ignored'
   notifiedVia: text('notified_via'), // 'email', 'slack'
   
-  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()).default(sql`(unixepoch())`),
 });
