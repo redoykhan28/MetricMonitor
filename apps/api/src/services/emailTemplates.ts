@@ -68,8 +68,7 @@ export function alertEmailHtml(opts: {
 
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🚨 Alert: ${trackerName}</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="${BASE_STYLES}">
   <div style="${CONTAINER}">
     <div style="${CARD}">
@@ -120,8 +119,7 @@ export function recoveryEmailHtml(opts: {
 
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>✅ Resolved: ${trackerName}</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="${BASE_STYLES}">
   <div style="${CONTAINER}">
     <div style="${CARD}">
@@ -164,8 +162,7 @@ export function welcomeEmailHtml(opts: {
 
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Welcome to MetricMonitor</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="${BASE_STYLES}">
   <div style="${CONTAINER}">
     <div style="${CARD}">
@@ -208,8 +205,7 @@ export function ga4AddedEmailHtml(opts: {
 
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>New Property Connected</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="${BASE_STYLES}">
   <div style="${CONTAINER}">
     <div style="${CARD}">
@@ -246,8 +242,7 @@ export function revokedTokenEmailHtml(opts: {
 
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Action Required — Reconnect Google Analytics</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="${BASE_STYLES}">
   <div style="${CONTAINER}">
     <div style="${CARD}">
@@ -303,8 +298,7 @@ export function compoundAlertEmailHtml(opts: {
 
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🚨 Alert: ${trackerName}</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="${BASE_STYLES}">
   <div style="${CONTAINER}">
     <div style="${CARD}">

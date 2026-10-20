@@ -25,34 +25,52 @@ interface AlertMeta {
   userFirstName?: string;
 }
 
-// ─── Resend Email Sender ──────────────────────────────────────────────────────
-async function sendViaResend(env: any, to: string[], subject: string, html: string): Promise<void> {
-  const resendApiKey = env.RESEND_API_KEY;
-  const fromAddress = env.RESEND_FROM_EMAIL || 'MetricMonitor <alerts@metricmonitor.io>';
+// ─── Brevo Email Sender ───────────────────────────────────────────────────────
+export async function sendViaBrevo(
+  env: any,
+  to: string[],
+  subject: string,
+  html: string
+): Promise<{ success: boolean; error?: string }> {
+  const brevoApiKey = env.BREVO_API_KEY;
+  const fromEmail = env.BREVO_FROM_EMAIL || 'alerts@metricmonitor.io';
+  const fromName = env.BREVO_FROM_NAME || 'MetricMonitor';
 
-  if (!resendApiKey) {
+  if (!brevoApiKey) {
     // Simulation mode for local dev — logs to terminal
     console.log('\n══════════════════════════════════════════════════');
     console.log(`✉️  [SIMULATED EMAIL] → To: ${to.join(', ')}`);
     console.log(`   Subject: ${subject}`);
     console.log('══════════════════════════════════════════════════\n');
-    return;
+    return { success: true };
   }
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ from: fromAddress, to, subject, html }),
-  });
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': brevoApiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: fromName, email: fromEmail },
+        to: to.map((email) => ({ email })),
+        subject,
+        htmlContent: html,
+      }),
+    });
 
-  if (!res.ok) {
-    const error = await res.text();
-    console.error(`[Dispatcher] Resend API error: ${res.status} — ${error}`);
-  } else {
-    console.log(`[Dispatcher] ✉️  Email sent to ${to.length} recipient(s): "${subject}"`);
+    if (!res.ok) {
+      const error = await res.text();
+      console.error(`[Dispatcher] Brevo API error: ${res.status} — ${error}`);
+      return { success: false, error };
+    } else {
+      console.log(`[Dispatcher] ✉️  Email sent to ${to.length} recipient(s): "${subject}"`);
+      return { success: true };
+    }
+  } catch (err: any) {
+    console.error(`[Dispatcher] Network error calling Brevo:`, err);
+    return { success: false, error: err?.message || 'Unknown network error' };
   }
 }
 
@@ -176,7 +194,7 @@ export async function dispatchEvent(
       break;
   }
 
-  await sendViaResend(env, emails, title, html);
+  await sendViaBrevo(env, emails, title, html);
 }
 
 // ─── Convenience: Alert-only dispatcher for the monitoring engine ─────────────
@@ -258,7 +276,7 @@ export async function dispatchRecovery(
 
   // Email recovery
   if (opts.emails.length > 0) {
-    await sendViaResend(env, opts.emails, subject, html);
+    await sendViaBrevo(env, opts.emails, subject, html);
   }
 }
 
@@ -325,5 +343,5 @@ export async function dispatchCompoundAlert(
     dashboardUrl,
   });
 
-  await sendViaResend(env, opts.emails, title, html);
+  await sendViaBrevo(env, opts.emails, title, html);
 }

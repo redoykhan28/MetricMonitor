@@ -14,7 +14,9 @@ export type Env = {
   CLERK_PUBLISHABLE_KEY: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
-  RESEND_API_KEY: string;
+  BREVO_API_KEY: string;
+  BREVO_FROM_EMAIL?: string;
+  BREVO_FROM_NAME?: string;
 };
 
 // Define Hono app with custom Context variables

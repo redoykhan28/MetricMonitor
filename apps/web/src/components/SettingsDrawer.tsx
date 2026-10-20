@@ -1,4 +1,4 @@
-import { X, Bell, Mail, Hash, Save, Loader2, Link, CheckCircle2, RefreshCw } from 'lucide-react';
+import { X, Bell, Mail, Hash, Save, Loader2, Link, CheckCircle2, RefreshCw, Send } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@clerk/clerk-react';
@@ -13,6 +13,8 @@ interface SettingsDrawerProps {
 export function SettingsDrawer({ isOpen, onClose, isGoogleConnected, onReconnectGoogle }: SettingsDrawerProps) {
   const { getToken } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [isTestSent, setIsTestSent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Form State
@@ -23,6 +25,45 @@ export function SettingsDrawer({ isOpen, onClose, isGoogleConnected, onReconnect
   const [emailOnGa4Added, setEmailOnGa4Added] = useState(false);
   const [emailOnTrackerAdded, setEmailOnTrackerAdded] = useState(false);
   const [discordWebhookUrl, setDiscordWebhookUrl] = useState('');
+
+  const handleSendTestEmail = async () => {
+    const emailList = alertEmails
+      .split(',')
+      .map(e => e.trim())
+      .filter(e => e.length > 0);
+
+    if (emailList.length === 0) {
+      toast.error('Please enter at least one email address in the field below first.');
+      return;
+    }
+    setIsSendingTest(true);
+    try {
+      const token = await getToken();
+      const res = await fetch('http://localhost:8787/api/settings/test-email', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ emails: emailList }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsTestSent(true);
+        setTimeout(() => setIsTestSent(false), 3500);
+        const count = emailList.length;
+        toast.success(
+          `Test alert sent to ${count} recipient${count > 1 ? 's' : ''} (${emailList.join(', ')})!`
+        );
+      } else {
+        toast.error(data.error || 'Failed to send test email.');
+      }
+    } catch (e: any) {
+      toast.error('Network error sending test email.');
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -94,7 +135,7 @@ export function SettingsDrawer({ isOpen, onClose, isGoogleConnected, onReconnect
       
       {/* Drawer */}
       <div 
-        className={`fixed inset-y-0 right-0 w-full max-w-md bg-surface border-l border-border shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 right-0 w-full max-w-lg bg-surface border-l border-border shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border bg-surface/50 backdrop-blur-md sticky top-0 z-10">
@@ -213,7 +254,32 @@ export function SettingsDrawer({ isOpen, onClose, isGoogleConnected, onReconnect
                     placeholder="marketing@company.com, team@company.com" 
                     className="w-full bg-background border border-border rounded-lg px-4 py-2.5 outline-none focus:border-primary transition-colors text-sm"
                   />
-                  <p className="text-xs text-text-muted mb-4">Separate multiple emails with commas.</p>
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <p className="text-xs text-text-muted">Separate multiple emails with commas.</p>
+                    <button
+                      type="button"
+                      onClick={handleSendTestEmail}
+                      disabled={isSendingTest}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0 ${
+                        isTestSent
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                          : 'border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary'
+                      }`}
+                    >
+                      {isSendingTest ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : isTestSent ? (
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <Send className="w-3 h-3" />
+                      )}
+                      {isSendingTest
+                        ? 'Sending via Brevo...'
+                        : isTestSent
+                        ? '✓ Test Alert Sent!'
+                        : 'Send Test Alert Email'}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3 bg-background/50 border border-border rounded-xl p-4">

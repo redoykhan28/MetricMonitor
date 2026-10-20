@@ -50,8 +50,9 @@ DASHBOARD_URL = "https://app.metricmonitor.io"   # Update to your real domain af
 #   wrangler secret put CLERK_PUBLISHABLE_KEY
 #   wrangler secret put GOOGLE_CLIENT_ID
 #   wrangler secret put GOOGLE_CLIENT_SECRET
-#   wrangler secret put RESEND_API_KEY
-#   wrangler secret put RESEND_FROM_EMAIL      (e.g. "MetricMonitor <alerts@yourdomain.com>")
+#   wrangler secret put BREVO_API_KEY
+#   wrangler secret put BREVO_FROM_EMAIL      (e.g. "alerts@yourdomain.com")
+#   wrangler secret put BREVO_FROM_NAME       (e.g. "MetricMonitor")
 
 # ─── Build ────────────────────────────────────────────────────────────────────
 [build]

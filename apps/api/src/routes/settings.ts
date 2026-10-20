@@ -3,6 +3,8 @@ import { getDb } from '../db';
 import { workspaces, workspaceSettings } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { Env } from '../index';
+import { sendViaBrevo } from '../services/dispatcher';
+import { alertEmailHtml } from '../services/emailTemplates';
 
 const settingsRoutes = new Hono<{ Bindings: Env; Variables: { userId: string } }>();
 
@@ -76,6 +78,64 @@ settingsRoutes.post('/', async (c) => {
   });
 
   return c.json({ success: true });
+});
+
+// POST /api/settings/test-email
+settingsRoutes.post('/test-email', async (c) => {
+  const userId = c.get('userId');
+  const db = getDb(c.env);
+  const body = await c.req.json().catch(() => ({}));
+
+  let targetEmails: string[] = [];
+  const raw = body.emails || body.email;
+  if (Array.isArray(raw)) {
+    targetEmails = raw.map((e: any) => String(e).trim()).filter(Boolean);
+  } else if (typeof raw === 'string') {
+    targetEmails = raw.split(',').map((e: string) => e.trim()).filter(Boolean);
+  }
+
+  if (targetEmails.length === 0) {
+    const workspace = await db.query.workspaces.findFirst({
+      where: eq(workspaces.ownerId, userId)
+    });
+    if (workspace) {
+      const settings = await db.query.workspaceSettings.findFirst({
+        where: eq(workspaceSettings.workspaceId, workspace.id)
+      });
+      if (settings?.alertEmails) {
+        targetEmails = settings.alertEmails.split(',').map((e: string) => e.trim()).filter(Boolean);
+      }
+    }
+  }
+
+  if (targetEmails.length === 0) {
+    return c.json({ error: 'Please enter at least one email address to send the test alert to.' }, 400);
+  }
+
+  const html = alertEmailHtml({
+    trackerName: 'E-commerce Checkout Funnel (Simulation)',
+    metric: 'conversions',
+    current: 14,
+    baseline: 120,
+    propertyName: 'Demo GA4 Property',
+    dashboardUrl: 'http://localhost:5173',
+  });
+
+  const result = await sendViaBrevo(
+    c.env,
+    targetEmails,
+    '🚨 [TEST ALERT] MetricMonitor Notification Test',
+    html
+  );
+
+  if (!result.success) {
+    return c.json({ error: result.error || 'Failed to send test email via Brevo' }, 500);
+  }
+
+  return c.json({ 
+    success: true, 
+    message: `Test email successfully sent to ${targetEmails.join(', ')}` 
+  });
 });
 
 export default settingsRoutes;
