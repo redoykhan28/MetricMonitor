@@ -17,6 +17,7 @@ export type Env = {
   BREVO_API_KEY: string;
   BREVO_FROM_EMAIL?: string;
   BREVO_FROM_NAME?: string;
+  DASHBOARD_URL?: string;
 };
 
 // Define Hono app with custom Context variables

@@ -105,6 +105,81 @@ export function alertEmailHtml(opts: {
 </html>`;
 }
 
+// ─── Test Alert Email (Simulation / Health Check) ───────────────────────────
+export function testAlertEmailHtml(opts: {
+  recipients?: string[];
+  dashboardUrl?: string;
+}): string {
+  const { recipients = [], dashboardUrl = 'https://app.metricmonitor.io' } = opts;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MetricMonitor Test Notification</title>
+</head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER}">
+    <div style="${CARD}">
+      ${logo()}
+
+      <!-- Test Banner Badge -->
+      <div style="background: rgba(79, 248, 210, 0.08); border: 1px solid rgba(79, 248, 210, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+        <div style="margin-bottom: 10px;">
+          <span style="background: #4FF8D2; color: #0D1318; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 8px; border-radius: 6px; display: inline-block;">
+            TEST NOTIFICATION
+          </span>
+          <span style="color: #4FF8D2; font-size: 13px; font-weight: 600; margin-left: 8px;">
+            Simulation Only — No Action Needed
+          </span>
+        </div>
+        <h2 style="margin: 6px 0 8px; color: #ffffff; font-size: 18px; font-weight: 700; line-height: 1.3;">
+          ✅ Your Alert Channel is Configured & Working!
+        </h2>
+        <p style="margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.5;">
+          This email was triggered by clicking <strong>"Send Test Alert Email"</strong> in your MetricMonitor dashboard. 
+          <span style="color: #cbd5e1; font-weight: 500;">No traffic drop or anomaly has occurred on your live Google Analytics properties.</span>
+        </p>
+      </div>
+
+      <!-- Preview of what a real alert looks like -->
+      <div style="margin-bottom: 22px;">
+        <p style="margin: 0 0 10px; color: #71717a; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+          Preview (How Real Alerts Look):
+        </p>
+        <div style="background: #201314; border: 1px solid #4a151b; border-radius: 10px; padding: 14px 16px;">
+          <div style="color: #f87171; font-size: 14px; font-weight: 600; margin-bottom: 4px;">
+            🚨 [Sample] E-commerce Checkout Drop Detected
+          </div>
+          <p style="margin: 0; color: #fca5a5; font-size: 12px; line-height: 1.4;">
+            When a real tracker triggers, you will receive real-time baseline metrics, percentage drops, and direct incident links.
+          </p>
+        </div>
+      </div>
+
+      <!-- Test Details Table -->
+      <table style="width: 100%; border-collapse: collapse;">
+        ${metricRow('Channel Status', 'Verified & Active', '#4FF8D2')}
+        ${metricRow('Delivery Provider', 'Brevo SMTP REST API')}
+        ${recipients.length > 0 ? metricRow('Recipients', recipients.join(', ')) : ''}
+        ${metricRow('Sent At', new Date().toUTCString())}
+      </table>
+
+      <div style="text-align: center; margin-top: 24px;">
+        ${ctaButton('Go to Dashboard →', dashboardUrl)}
+      </div>
+    </div>
+
+    <p style="${FOOTER}">
+      This was an automated test initiated from your MetricMonitor Alert Settings.<br>
+      © ${new Date().getFullYear()} MetricMonitor. All rights reserved.
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
 // ─── Recovery Email ──────────────────────────────────────────────────────────
 export function recoveryEmailHtml(opts: {
   trackerName: string;

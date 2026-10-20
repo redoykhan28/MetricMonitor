@@ -4,7 +4,7 @@ import { workspaces, workspaceSettings } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { Env } from '../index';
 import { sendViaBrevo } from '../services/dispatcher';
-import { alertEmailHtml } from '../services/emailTemplates';
+import { alertEmailHtml, testAlertEmailHtml } from '../services/emailTemplates';
 
 const settingsRoutes = new Hono<{ Bindings: Env; Variables: { userId: string } }>();
 
@@ -112,19 +112,15 @@ settingsRoutes.post('/test-email', async (c) => {
     return c.json({ error: 'Please enter at least one email address to send the test alert to.' }, 400);
   }
 
-  const html = alertEmailHtml({
-    trackerName: 'E-commerce Checkout Funnel (Simulation)',
-    metric: 'conversions',
-    current: 14,
-    baseline: 120,
-    propertyName: 'Demo GA4 Property',
-    dashboardUrl: 'http://localhost:5173',
+  const html = testAlertEmailHtml({
+    recipients: targetEmails,
+    dashboardUrl: c.env.DASHBOARD_URL || 'http://localhost:5173',
   });
 
   const result = await sendViaBrevo(
     c.env,
     targetEmails,
-    '🚨 [TEST ALERT] MetricMonitor Notification Test',
+    '🧪 [TEST NOTIFICATION] MetricMonitor Alert Channel is Working (No Action Needed)',
     html
   );
 
